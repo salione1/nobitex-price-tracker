@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <title>قیمت و اختلاف درصدی ارزها | نوبیتکس</title>
+    <style>
+        body {
+            font-family: Tahoma;
+            direction: rtl;
+            text-align: center;
+        }
+        table {
+            margin: auto;
+            border-collapse: collapse;
+            width: 95%;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+        th {
+            background-color: #333;
+            color: white;
+        }
+        .positive {
+            color: green;
+        }
+        .negative {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h2>قیمت لحظه‌ای و اختلاف درصدی بازار IRT و USDT (نوبیتکس)</h2>
+    <p>به‌روزرسانی هر 30 ثانیه</p>
+    <table id="price-table">
+        <thead>
+            <tr>
+                <th>نام ارز</th>
+                <th>قیمت (IRT)</th>
+                <th>قیمت (USDT)</th>
+                <th>تغییر ۲۴ ساعته (IRT)</th>
+                <th>تغییر ۲۴ ساعته (USDT)</th>
+                <th>اختلاف درصد تغییرات</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        async function fetchData() {
+            try {
+                const res = await fetch('http://127.0.0.1:5000/api');
+                const json = await res.json();
+                const stats = json.stats;
+
+                const usdtToIrt = 62000;  // نرخ تبدیل تقریبی
+                const tbody = document.querySelector("tbody");
+                tbody.innerHTML = "";
+
+                const rows = [];
+
+                Object.keys(stats).forEach(symbol => {
+                    if (symbol.endsWith("-rls")) {
+                        const usdtSymbol = symbol.replace("-rls", "-usdt");
+                        const irt = stats[symbol];
+                        const usdt = stats[usdtSymbol];
+
+                        if (irt && usdt) {
+                            const name = symbol.replace("-rls", "").toUpperCase();
+
+                            const irtPrice = parseFloat(irt.latest) / 10;
+                            const usdtPrice = parseFloat(usdt.latest) * usdtToIrt;
+
+                            const irtChange = parseFloat(irt.dayChange);
+                            const usdtChange = parseFloat(usdt.dayChange);
+
+                            if (!isNaN(irtChange) && !isNaN(usdtChange)) {
+                                const changeDiff = irtChange - usdtChange;
+
+                                rows.push({
+                                    name,
+                                    irtPrice,
+                                    usdtPrice,
+                                    irtChange,
+                                    usdtChange,
+                                    changeDiff
+                                });
+                            }
+                        }
+                    }
+                });
+
+                // سورت براساس قدر مطلق اختلاف درصدی
+                rows.sort((a, b) => Math.abs(b.changeDiff) - Math.abs(a.changeDiff));
+
+                rows.forEach(row => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td>${row.name}</td>
+                        <td>${row.irtPrice.toLocaleString()}</td>
+                        <td>${row.usdtPrice.toFixed(0).toLocaleString()}</td>
+                        <td class="${row.irtChange >= 0 ? 'positive' : 'negative'}">${row.irtChange.toFixed(2)}%</td>
+                        <td class="${row.usdtChange >= 0 ? 'positive' : 'negative'}">${row.usdtChange.toFixed(2)}%</td>
+                        <td class="${row.changeDiff >= 0 ? 'positive' : 'negative'}">${row.changeDiff.toFixed(2)}%</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+            } catch (error) {
+                console.error("خطا در دریافت یا پردازش داده:", error);
+            }
+        }
+
+        fetchData();
+        setInterval(fetchData, 30000);
+    </script>
+</body>
+</html>
